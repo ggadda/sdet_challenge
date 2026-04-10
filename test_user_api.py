@@ -244,12 +244,12 @@ class TestDeleteUser:
         r = requests.get(f"{BASE_URL}/users/{existing_user['email']}")
         assert r.status_code == 404
 
-    @pytest.mark.xfail(reason="BUG-005: DELETE without auth header succeeds instead of returning 401", strict=True)
+    @pytest.mark.xfail(condition=BASE_URL.endswith("/dev"), reason="BUG-005: DELETE without auth header succeeds instead of returning 401 (dev only)", strict=True)
     def test_delete_without_auth_header_returns_401(self, existing_user):
         r = requests.delete(f"{BASE_URL}/users/{existing_user['email']}")
         assert r.status_code == 401
 
-    @pytest.mark.xfail(reason="BUG-006: DELETE with invalid token succeeds instead of returning 401", strict=True)
+    @pytest.mark.xfail(condition=BASE_URL.endswith("/dev"), reason="BUG-006: DELETE with invalid token succeeds instead of returning 401 (dev only)", strict=True)
     def test_delete_with_invalid_token_returns_401(self, existing_user):
         r = requests.delete(
             f"{BASE_URL}/users/{existing_user['email']}",
