@@ -1,0 +1,71 @@
+name: User API Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Stage 1 – Dev environment
+  # ──────────────────────────────────────────────
+  test-dev:
+    name: "Dev Stage"
+    runs-on: ubuntu-latest
+
+    services:
+      api:
+        image: ghcr.io/danielsilva-loanpro/sdet-interview-challenge:latest
+        ports:
+          - 3000:3000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest requests
+
+      - name: Run tests against Dev
+        env:
+          BASE_URL: "http://localhost:3000/dev"
+          AUTH_TOKEN: "mysecrettoken"
+        run: pytest test_user_api.py -v --tb=short
+
+  # ──────────────────────────────────────────────
+  # Stage 2 – Prod environment (runs only if Dev passes)
+  # ──────────────────────────────────────────────
+  test-prod:
+    name: "Prod Stage"
+    runs-on: ubuntu-latest
+    needs: test-dev
+
+    services:
+      api:
+        image: ghcr.io/danielsilva-loanpro/sdet-interview-challenge:latest
+        ports:
+          - 3000:3000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest requests
+
+      - name: Run tests against Prod
+        env:
+          BASE_URL: "http://localhost:3000/prod"
+          AUTH_TOKEN: "mysecrettoken"
+        run: pytest test_user_api.py -v --tb=short
