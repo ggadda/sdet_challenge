@@ -1,20 +1,19 @@
 """
 User Management API - Test Suite
 =================================
-Prerequisites:
+Preruisites:
     pip install pytest requests
 
 Run all tests:
     pytest test_user_api.py -v
-
-Run a specific group:
-    pytest test_user_api.py -v -k "create"
 
 Configuration:
     Set BASE_URL below to match your local server.
 """
 
 import os
+import random
+import string
 import pytest
 import requests
 import uuid
@@ -30,9 +29,9 @@ EMAIL = "test_user@example.com"
 # ──────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────
-def unique_email():
-    """Generate a unique email to avoid conflicts between test runs."""
-    return f"test_{uuid.uuid4().hex[:8]}@example.com"
+def unique_email(domain="example.com"):
+    random_str = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+    return f"{random_str}@{domain}"
 
 
 def create_user(name="Test User", email=None, age=25):
@@ -74,7 +73,7 @@ class TestListUsers:
         r = requests.get(f"{BASE_URL}/users")
         assert isinstance(r.json(), list)
 
-    def test_user_objects_have_required_fields(self, existing_user):
+    def test_user_have_required_fields(self, existing_user):
         r = requests.get(f"{BASE_URL}/users")
         users = r.json()
         if users:
@@ -107,6 +106,10 @@ class TestCreateUser:
         assert body["age"] == payload["age"]
         delete_user(payload["email"])
 
+    def test_name_special_chars_returns_201(self):
+        r = requests.post(f"{BASE_URL}/users", json={"name": "Mc'Donald-Jhonson" ,"email": unique_email(), "age": 25})
+        assert r.status_code == 201
+
     def test_missing_name_returns_400(self):
         r = requests.post(f"{BASE_URL}/users", json={"email": unique_email(), "age": 25})
         assert r.status_code == 400
@@ -121,7 +124,12 @@ class TestCreateUser:
 
     @pytest.mark.xfail(reason="BUG-001: API accepts invalid email format instead of returning 400", strict=True)
     def test_invalid_email_format_returns_400(self):
-        r = requests.post(f"{BASE_URL}/users", json={"name": "Bob", "email": "Missing", "age": 25})
+        r = requests.post(f"{BASE_URL}/users", json={"name": "Bob", "email": "Invalid", "age": 25})
+        assert r.status_code == 400
+
+    @pytest.mark.xfail(reason="BUG-001: API accepts invalid email format instead of returning 400", strict=True)
+    def test_partial_email_format_returns_400(self):
+        r = requests.post(f"{BASE_URL}/users", json={"name": "Bob", "email": "@example.com", "age": 25})
         assert r.status_code == 400
 
     def test_age_below_minimum_returns_400(self):
@@ -141,6 +149,11 @@ class TestCreateUser:
         r, payload = create_user(age=150)
         assert r.status_code == 201
         delete_user(payload["email"])
+
+    def test_age_above_maximum_returns_400(self):
+        r = requests.post(f"{BASE_URL}/users", json={"name": "Bob", "email": unique_email(), "age": 151})
+        assert r.status_code == 400
+
 
     @pytest.mark.xfail(reason="BUG-002: Duplicate email returns 500 instead of 409", strict=True)
     def test_duplicate_email_returns_409(self, existing_user):
@@ -174,7 +187,12 @@ class TestGetUser:
 
     @pytest.mark.xfail(reason="BUG-003: Non-existent user returns 500 instead of 404", strict=True)
     def test_nonexistent_user_returns_404(self):
-        r = requests.get(f"{BASE_URL}/users/nobody_{uuid.uuid4().hex}@example.com")
+        r = requests.get(f"{BASE_URL}/users/nobody@example.com")
+        assert r.status_code == 404
+
+    @pytest.mark.xfail(reason="BUG-003: Non-existent user returns 500 instead of 404", strict=True)
+    def test_nonexistent_user_with_invalid_email_returns_404(self):
+        r = requests.get(f"{BASE_URL}/users/nobody")
         assert r.status_code == 404
 
     def test_404_response_has_error_field(self):
